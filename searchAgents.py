@@ -96,7 +96,8 @@ class PositionSearchProblem(search.SearchProblem):
 
         self.walls = gameState.getWalls()
         self.startState = gameState.getPacmanPosition()
-        if start != None: self.startState = start
+        if start is not None:
+            self.startState = start
         self.goal = goal
         self.costFn = costFn
         self.visualize = visualize
