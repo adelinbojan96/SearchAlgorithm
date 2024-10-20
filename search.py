@@ -3,7 +3,6 @@ from util import manhattanDistance
 import util, layout
 import sys, types, time, random, os
 
-
 class SearchProblem:
     def getStartState(self):
         util.raiseNotDefined()
@@ -43,9 +42,35 @@ def tinyMazeSearch(problem):
     w = Directions.WEST
     return  [s, s, w, s, w, w, s, w]
 
-def generateGenome(length):
-    genome = ''.join([random.choice(['00', '01', '10', '11']) for _ in range(length)])
-    return genome
+
+def generateValidGenome(problem, max_genome_length):
+    state = problem.getStartState()
+    genome = []
+
+    for _ in range(max_genome_length):
+        legalActions = state.getLegalPacmanActions()
+
+        if legalActions:
+            action = random.choice(legalActions)
+            genome.append(encodeMove(action))
+            state = state.generatePacmanSuccessor(action)
+
+            if state.isWin() or state.isLose():
+                break
+        else:
+            break
+
+    return ''.join(genome)
+
+def encodeMove(action):
+    if action == Directions.NORTH:
+        return "00"
+    elif action == Directions.EAST:
+        return "01"
+    elif action == Directions.SOUTH:
+        return "10"
+    else:
+        return "11"
 
 def decodeMove(move):
     if move == "00":
@@ -60,57 +85,42 @@ def decodeMove(move):
 def fitness(genome, problem):
     state = problem.getStartState()
     score = 0
-    previous_food_count = state.getNumFood()
-    steps_survived = 0
-
     for i in range(0, len(genome), 2):
         move = genome[i:i + 2]
         action = decodeMove(move)
 
-        successors = problem.getSuccessors(state)
-        for successor, direction, cost in successors:
-            if direction == action:
-                state = successor
-                break
+        legalActions = state.getLegalPacmanActions()
 
-        steps_survived += 1
-
-        if state.isWin():
-            score += 500000
+        if not legalActions:
+            score -= 10000
             break
+
+        if action not in legalActions:
+            action = random.choice(legalActions)
+
+        state = state.generatePacmanSuccessor(action)
 
         if state.isLose():
-            score -= 50000
+            score -= 5000
             break
 
-        score += 20
+        score += 10
 
         pacman_position = state.getPacmanPosition()
         ghosts = state.getGhostPositions()
-        current_food_count = state.getNumFood()
-
-        if current_food_count < previous_food_count:
-            score += 100
-            previous_food_count = current_food_count
 
         if ghosts:
             closest_ghost_distance = min(
-                [manhattanDistance(pacman_position, ghost) for ghost in ghosts]
+                manhattanDistance(pacman_position, ghost) for ghost in ghosts
             )
             if closest_ghost_distance < 1:
-                score -= 10000
-            if closest_ghost_distance < 2:
                 score -= 1000
-            elif closest_ghost_distance < 3:
+            elif closest_ghost_distance < 2:
                 score -= 500
-            else:
-                score += closest_ghost_distance * 10
-
-    score += steps_survived * 10
+            elif closest_ghost_distance < 3:
+                score -= 300
 
     return score
-
-
 
 def crossover(parent1, parent2):
     crossoverPoint = random.randint(2, len(parent1) - 2)
@@ -158,21 +168,25 @@ def select(population, fitnessScores):
     parent2 = population[index2]
     return parent1, parent2
 
-def geneticAlgorithmSearch(problem, population_size=200, generations = 3, mutation_rate=0.75, max_genome_length=700):
 
+def geneticAlgorithmSearch(problem, population_size=150, generations=12, mutation_rate=0.45, max_genome_length=600):
     # generating the initial population of genomes
-    randomGenomesPopulation = [generateGenome(max_genome_length) for _ in range(population_size)]
+    randomGenomesPopulation = [generateValidGenome(problem, max_genome_length) for _ in range(population_size)]
 
     fitnessScore = [fitness(genome, problem) for genome in randomGenomesPopulation]
 
-    for i in range(generations):
+    bestGenomeIndex = fitnessScore.index(max(fitnessScore))
+    bestGenome = randomGenomesPopulation[bestGenomeIndex]
+    bestGenomeScore = fitnessScore[bestGenomeIndex]
+
+    for generation in range(generations):
         newPopulation = []
 
         while len(newPopulation) < population_size:
             parent1, parent2 = select(randomGenomesPopulation, fitnessScore)
             child1, child2 = crossover(parent1, parent2)
             child1 = mutate(child1, mutation_rate)
-            child2 = mutate(child2, mutation_rate)
+            child2 = mutate(child1, mutation_rate)
 
             newPopulation.append(child1)
             if len(newPopulation) < population_size:
@@ -183,10 +197,12 @@ def geneticAlgorithmSearch(problem, population_size=200, generations = 3, mutati
 
         best_fitness = max(fitnessScore)
         avg_fitness = sum(fitnessScore) / len(fitnessScore)
-        print(f"Generation {i + 1}, Best Fitness: {best_fitness}, Average Fitness: {avg_fitness}")
+        print(f"Generation {generation + 1}, Average Fitness: {avg_fitness}")
 
-    bestGenomeIndex = fitnessScore.index(max(fitnessScore))
-    bestGenome = randomGenomesPopulation[bestGenomeIndex]
+        if bestGenomeScore < best_fitness:
+            bestGenomeIndex = fitnessScore.index(max(fitnessScore))
+            bestGenome = randomGenomesPopulation[bestGenomeIndex]
+            bestGenomeScore = best_fitness
 
     state = problem.getStartState()
     actions = []
@@ -199,16 +215,8 @@ def geneticAlgorithmSearch(problem, population_size=200, generations = 3, mutati
             state = state.generatePacmanSuccessor(action)
             if state.isWin() or state.isLose():
                 break
-        else:
-            if legalActions:
-                action = random.choice(legalActions)
-                actions.append(action)
-                state = state.generatePacmanSuccessor(action)
-            else:
-                continue
 
     return actions
-
 
 def depthFirstSearch(problem):
 
