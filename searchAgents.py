@@ -66,6 +66,30 @@ class SearchAgent(Agent):
         else:
             return Directions.STOP
 
+class GeneticSearchProblem(search.SearchProblem):
+    def __init__(self, gameState):
+        self.gameState = gameState
+        self.startState = gameState
+        self.walls = gameState.getWalls()
+
+    def getStartState(self):
+        return self.startState
+
+    def isGoalState(self, state):
+        return state.isWin() or state.isLose()
+
+    def getSuccessors(self, state):
+        successors = []
+        for action in state.getLegalPacmanActions():
+            nextState = state.generatePacmanSuccessor(action)
+            if nextState:
+                cost = 1
+                successors.append((nextState, action, cost))
+        return successors
+
+    def getCostOfActions(self, actions):
+        return len(actions)
+
 class PositionSearchProblem(search.SearchProblem):
 
     def __init__(self, gameState, costFn = lambda x: 1, goal=(1,1), start=None, warn=True, visualize=True):

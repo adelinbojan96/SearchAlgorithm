@@ -1,8 +1,8 @@
-import util
-import random
-
-from pac3man.reinforcement.game import Directions
-
+from game import Directions
+from util import manhattanDistance
+import util, layout
+import sys, types, time, random, os
+from pacman import GameState
 
 class SearchProblem:
     def getStartState(self):
@@ -57,19 +57,10 @@ def decodeMove(move):
     else:
         return Directions.WEST
 
-def getGhostPositions(state):
-    ghostPositions = []
-    for i in range(1, state.getNumAgents()):  # pacman is agent 0, ghosts are 1 through n
-        ghostPositions.append(state.getGhostPosition(i))
-    return ghostPositions
-
-def manhattanDistance(xy1, xy2):
-    return abs(xy1[0] - xy2[0]) + abs(xy1[1] - xy2[1])
-
 def fitness(genome, problem):
-    state = problem.getStartState
-    ghosts = getGhostPositions(state)
+    state = problem.getStartState()
     score = 0
+    previous_food_count = state.getNumFood()
 
     for i in range(0, len(genome), 2):
         move = genome[i:i+2]
@@ -84,10 +75,20 @@ def fitness(genome, problem):
                 break
 
         if not validMove:
-            return -999999
+            return -10000
 
-        closest_ghost_distance = min([manhattanDistance(state, ghost) for ghost in ghosts])
-        score += closest_ghost_distance  # the farther, the better
+        pacman_position = state.getPacmanPosition()
+        ghosts = state.getGhostPositions()
+        current_food_count = state.getNumFood()
+
+        if current_food_count < previous_food_count:
+            score += 100  # reward for eating a dot
+            previous_food_count = current_food_count
+
+        if ghosts:
+            closest_ghost_distance = min([manhattanDistance(pacman_position, ghost) for ghost in ghosts])
+            if closest_ghost_distance < 3:
+                score -= 350  # too close to a ghost
 
     return score
 
@@ -122,21 +123,73 @@ def mutate(genome, mutationRate):
             mutatedGenome += encodedMove
     return mutatedGenome
 
+
 def select(population, fitnessScores):
-    totalFitness = sum(fitnessScores)
-    selectionProbs = [score / totalFitness for score in fitnessScores]
-    maxValue = 0
-    maxSelectedScoreIndex = 0
+    index1 = fitnessScores.index(max(fitnessScores))
 
-    for i in range(0, len(selectionProbs), 1):
-        if selectionProbs[i] > maxValue:
-            maxValue = selectionProbs[i]
-            maxSelectedScoreIndex = i
+    copyMax = max(fitnessScores)
+    fitnessScores[index1] = float('-inf')
 
-    return population[maxSelectedScoreIndex]
+    index2 = fitnessScores.index(max(fitnessScores))
 
-def geneticAlgorithmSearch(problem, population_size=100, generations=200, mutation_rate=0.1, max_genome_length=50):
-    
+    fitnessScores[index1] = copyMax
+
+    parent1 = population[index1]
+    parent2 = population[index2]
+    return parent1, parent2
+
+def geneticAlgorithmSearch(problem, population_size=150, generations=200, mutation_rate=0.45, max_genome_length=400):
+
+    # generating the population of genomes
+    randomGenomesPopulation = []
+    for _ in range(population_size):
+        genome = generateGenome(max_genome_length)
+        randomGenomesPopulation.append(genome)
+
+    fitnessScore = []
+    for i in range(population_size):
+        fitnessScore.append(fitness(randomGenomesPopulation[i], problem))
+
+    for i in range(generations):
+        newPopulation = []
+
+        while len(newPopulation) < population_size:
+            parent1, parent2 = select(randomGenomesPopulation, fitnessScore)
+
+            child1, child2 = crossover(parent1, parent2)
+
+            child1 = mutate(child1, mutation_rate)
+            child2 = mutate(child2, mutation_rate)
+
+            newPopulation.append(child1)
+            newPopulation.append(child2)
+
+        fitnessScoreNewPop = []
+        for j in range(len(newPopulation)):
+            fitnessScoreNewPop.append(fitness(newPopulation[j], problem))
+
+        randomGenomesPopulation = newPopulation
+        fitnessScore = fitnessScoreNewPop
+
+    bestGenomeIndex = fitnessScore.index(max(fitnessScore))
+    bestGenome = randomGenomesPopulation[bestGenomeIndex]
+
+    state = problem.getStartState()
+    actions = []
+    for i in range(0, len(bestGenome), 2):
+        move = bestGenome[i:i + 2]
+        action = decodeMove(move)
+        legalActions = state.getLegalPacmanActions()
+        if action in legalActions:
+            actions.append(action)
+            state = state.generatePacmanSuccessor(action)
+            if state.isWin() or state.isLose():
+                break
+        else:
+            continue
+
+    return actions
+
 def depthFirstSearch(problem):
 
     stack = util.Stack()
@@ -252,3 +305,4 @@ bfs = breadthFirstSearch
 dfs = depthFirstSearch
 astar = aStarSearch
 ucs = uniformCostSearch
+gas = geneticAlgorithmSearch

@@ -47,6 +47,7 @@ from util import nearestPoint
 from util import manhattanDistance
 import util, layout
 import sys, types, time, random, os
+import searchAgents
 
 ###################################################
 # YOUR INTERFACE TO THE PACMAN WORLD: A GameState #
@@ -134,12 +135,6 @@ class GameState:
         return self.generateSuccessor( 0, action )
 
     def getPacmanState( self ):
-        """
-        Returns an AgentState object for pacman (in game.py)
-
-        state.pos gives the current position
-        state.direction gives the travel vector
-        """
         return self.data.agentStates[0].copy()
 
     def getPacmanPosition( self ):
@@ -625,6 +620,11 @@ def replayGame( layout, actions, display ):
         rules.process(state, game)
 
     display.finish()
+
+
+def file(fname, param):
+    pass
+
 
 def runGames( layout, pacman, ghosts, display, numGames, record, numTraining = 0, catchExceptions=False, timeout=30 ):
     import __main__
