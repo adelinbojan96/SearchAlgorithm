@@ -84,6 +84,7 @@ def decodeMove(move):
 
 def fitness(genome, problem):
     random.seed(42)
+
     state = problem.getStartState()
     score = 0
     previous_food_count = state.getNumFood()
@@ -117,13 +118,16 @@ def fitness(genome, problem):
             score += dots_eaten * 50
             previous_food_count = current_food_count
 
-        for ghostIndex, ghostAgent in enumerate(ghost_agents, start=1):
-            ghostActionDist = ghostAgent.getDistribution(state)
-            ghostAction = max(ghostActionDist, key=ghostActionDist.get)
-            state = state.generateSuccessor(ghostIndex, ghostAction)
+        for j in range(1, len(ghost_agents) + 1):
+            ghostAgent = ghost_agents[j - 1]
+            distribution = ghostAgent.getDistribution(state)
+            bestAction = max(distribution, key=distribution.get)
+            state = state.generateSuccessor(j, bestAction)
+
             if state.isLose():
                 score -= 5000
                 break
+
         if state.isLose():
             break
 
