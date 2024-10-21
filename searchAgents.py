@@ -68,9 +68,7 @@ class SearchAgent(Agent):
 
 class GeneticSearchProblem(search.SearchProblem):
     def __init__(self, gameState):
-        self.gameState = gameState
         self.startState = gameState
-        self.walls = gameState.getWalls()
 
     def getStartState(self):
         return self.startState
@@ -80,8 +78,8 @@ class GeneticSearchProblem(search.SearchProblem):
 
     def getSuccessors(self, state):
         successors = []
-        for action in state.getLegalPacmanActions():
-            nextState = state.generatePacmanSuccessor(action)
+        for action in state.getLegalActions(0):  # 0 is Pacman's index
+            nextState = state.generateSuccessor(0, action)
             if nextState:
                 cost = 1
                 successors.append((nextState, action, cost))
@@ -89,6 +87,7 @@ class GeneticSearchProblem(search.SearchProblem):
 
     def getCostOfActions(self, actions):
         return len(actions)
+
 
 class PositionSearchProblem(search.SearchProblem):
 
