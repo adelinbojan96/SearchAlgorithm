@@ -181,7 +181,6 @@ def mutate(genome, mutationRate):
             mutatedGenome += encodedMove
     return mutatedGenome
 
-
 def select(population, fitnessScores):
     index1 = fitnessScores.index(max(fitnessScores))
 
@@ -197,7 +196,7 @@ def select(population, fitnessScores):
     return parent1, parent2
 
 
-def geneticAlgorithmSearch(problem, population_size=150, generations=15, mutation_rate=0.15, max_genome_length=800):
+def geneticAlgorithmSearch(problem, population_size=150, generations=20, mutation_rate=0.12, max_genome_length=800):
     # generating the initial population of genomes
     randomGenomesPopulation = [generateValidGenome(problem, max_genome_length) for _ in range(population_size)]
 
@@ -214,7 +213,7 @@ def geneticAlgorithmSearch(problem, population_size=150, generations=15, mutatio
             parent1, parent2 = select(randomGenomesPopulation, fitnessScore)
             child1, child2 = crossover(parent1, parent2)
             child1 = mutate(child1, mutation_rate)
-            child2 = mutate(child1, mutation_rate)
+            child2 = mutate(child2, mutation_rate)
 
             newPopulation.append(child1)
             if len(newPopulation) < population_size:
