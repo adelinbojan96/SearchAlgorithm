@@ -1,16 +1,4 @@
-# layout.py
-# ---------
-# Licensing Information:  You are free to use or extend these projects for
-# educational purposes provided that (1) you do not distribute or publish
-# solutions, (2) you retain this notice, and (3) you provide clear
-# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
-# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
-# The core projects and autograders were primarily created by John DeNero
-# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
-# Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
+from functools import reduce
 
 from util import manhattanDistance
 from game import Grid
@@ -25,17 +13,18 @@ class Layout:
     """
 
     def __init__(self, layoutText):
+
         self.width = len(layoutText[0])
-        self.height= len(layoutText)
+        self.height = len(layoutText)
         self.walls = Grid(self.width, self.height, False)
         self.food = Grid(self.width, self.height, False)
         self.capsules = []
         self.agentPositions = []
         self.numGhosts = 0
+        self.specialCapsules = []
         self.processLayoutText(layoutText)
         self.layoutText = layoutText
         self.totalFood = len(self.food.asList())
-        # self.initializeVisibilityMatrix()
 
     def getNumGhosts(self):
         return self.numGhosts
@@ -122,6 +111,8 @@ class Layout:
             self.capsules.append((x, y))
         elif layoutChar == 'P':
             self.agentPositions.append( (0, (x, y) ) )
+        elif layoutChar == 'i':
+            self.specialCapsules.append((x, y))
         elif layoutChar in ['G']:
             self.agentPositions.append( (1, (x, y) ) )
             self.numGhosts += 1

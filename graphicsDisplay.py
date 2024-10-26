@@ -1,17 +1,3 @@
-# graphicsDisplay.py
-# ------------------
-# Licensing Information:  You are free to use or extend these projects for
-# educational purposes provided that (1) you do not distribute or publish
-# solutions, (2) you retain this notice, and (3) you provide clear
-# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
-# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
-# The core projects and autograders were primarily created by John DeNero
-# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
-# Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
-
 from graphicsUtils import *
 import math, time
 from game import Directions
@@ -39,6 +25,10 @@ GHOST_COLORS.append(formatColor(.98,.41,.07)) # Orange
 GHOST_COLORS.append(formatColor(.1,.75,.7)) # Green
 GHOST_COLORS.append(formatColor(1.0,0.6,0.0)) # Yellow
 GHOST_COLORS.append(formatColor(.4,0.13,0.91)) # Purple
+
+INVINCIBILITY_FOOD_COLOR = formatColor(0.0, 1.0, 1.0)  # Light Blue
+INVINCIBILITY_FOOD_SIZE = 0.35
+INVINCIBLE_PACMAN_COLOR = formatColor(0.0, 1.0, 0.3)
 
 TEAM_COLORS = GHOST_COLORS[:2]
 
@@ -204,7 +194,7 @@ class PacmanGraphics:
     def drawStaticObjects(self, state):
         layout = self.layout
         self.drawWalls(layout.walls)
-        self.food = self.drawFood(layout.food)
+        self.food = self.drawFood(layout.food, state)
         self.capsules = self.drawCapsules(layout.capsules)
         refresh()
 
@@ -273,6 +263,10 @@ class PacmanGraphics:
         outlineColor = PACMAN_COLOR
         fillColor = PACMAN_COLOR
 
+        if pacman.isInvincible:
+            outlineColor = INVINCIBLE_PACMAN_COLOR
+            fillColor = INVINCIBLE_PACMAN_COLOR
+
         if self.capture:
             outlineColor = TEAM_COLORS[index % 2]
             fillColor = GHOST_COLORS[index]
@@ -299,10 +293,20 @@ class PacmanGraphics:
             endpoints = (0+delta, 0-delta)
         return endpoints
 
-    def movePacman(self, position, direction, image):
+    def movePacman(self, position, direction, image, pacman):
         screenPosition = self.to_screen(position)
-        endpoints = self.getEndpoints( direction, position )
+        endpoints = self.getEndpoints(direction, position)
         r = PACMAN_SCALE * self.gridSize
+
+        if pacman.isInvincible:
+            fillColor = INVINCIBLE_PACMAN_COLOR
+            outlineColor = INVINCIBLE_PACMAN_COLOR
+        else:
+            fillColor = PACMAN_COLOR
+            outlineColor = PACMAN_COLOR
+
+        edit(image[0], ('fill', fillColor), ('outline', outlineColor))
+
         moveCircle(image[0], screenPosition, r, endpoints)
         refresh()
 
@@ -317,13 +321,16 @@ class PacmanGraphics:
             fx, fy = self.getPosition(prevPacman)
             px, py = self.getPosition(pacman)
             frames = 4.0
-            for i in range(1,int(frames) + 1):
-                pos = px*i/frames + fx*(frames-i)/frames, py*i/frames + fy*(frames-i)/frames
-                self.movePacman(pos, self.getDirection(pacman), image)
+            for i in range(1, int(frames) + 1):
+                pos = (
+                    px * i / frames + fx * (frames - i) / frames,
+                    py * i / frames + fy * (frames - i) / frames,
+                )
+                self.movePacman(pos, self.getDirection(pacman), image, pacman)
                 refresh()
                 sleep(abs(self.frameTime) / frames)
         else:
-            self.movePacman(self.getPosition(pacman), self.getDirection(pacman), image)
+            self.movePacman(self.getPosition(pacman), self.getDirection(pacman), image, pacman)
         refresh()
 
     def getGhostColor(self, ghost, ghostIndex):
@@ -521,7 +528,7 @@ class PacmanGraphics:
             return False
         return walls[x][y]
 
-    def drawFood(self, foodMatrix ):
+    def drawFood(self, foodMatrix, state):
         foodImages = []
         color = FOOD_COLOR
         for xNum, x in enumerate(foodMatrix):
@@ -536,6 +543,11 @@ class PacmanGraphics:
                                   FOOD_SIZE * self.gridSize,
                                   outlineColor = color, fillColor = color,
                                   width = 1)
+                    imageRow.append(dot)
+                elif (xNum, yNum) in state.specialCapsules:  # invincibility food
+                    screen = self.to_screen((xNum, yNum))
+                    dot = circle(screen, INVINCIBILITY_FOOD_SIZE * self.gridSize, outlineColor=INVINCIBILITY_FOOD_COLOR,
+                                 fillColor=INVINCIBILITY_FOOD_COLOR, width=1)
                     imageRow.append(dot)
                 else:
                     imageRow.append(None)

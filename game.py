@@ -129,31 +129,36 @@ class AgentState:
         self.scaredTimer = 0
         self.numCarrying = 0
         self.numReturned = 0
+        self.isInvincible = False
 
-    def __str__( self ):
+    def __str__(self):
         if self.isPacman:
-            return "Pacman: " + str( self.configuration )
+            return "Pacman: " + str(self.configuration) + (" [Invincible]" if self.isInvincible else "")
         else:
-            return "Ghost: " + str( self.configuration )
+            return "Ghost: " + str(self.configuration)
 
-    def __eq__( self, other ):
+    def __eq__(self, other):
         if other == None:
             return False
-        return self.configuration == other.configuration and self.scaredTimer == other.scaredTimer
+        return (self.configuration == other.configuration and
+                self.scaredTimer == other.scaredTimer and
+                self.isInvincible == other.isInvincible)
 
     def __hash__(self):
-        return hash(hash(self.configuration) + 13 * hash(self.scaredTimer))
+        return hash((self.configuration, self.scaredTimer, self.isInvincible))
 
-    def copy( self ):
-        state = AgentState( self.start, self.isPacman )
+    def copy(self):
+        state = AgentState(self.start, self.isPacman)
         state.configuration = self.configuration
         state.scaredTimer = self.scaredTimer
         state.numCarrying = self.numCarrying
         state.numReturned = self.numReturned
+        state.isInvincible = self.isInvincible
         return state
 
     def getPosition(self):
-        if self.configuration == None: return None
+        if self.configuration == None:
+            return None
         return self.configuration.getPosition()
 
     def getDirection(self):
@@ -335,18 +340,19 @@ class Actions:
         x_int, y_int = int(x + 0.5), int(y + 0.5)
 
         # In between grid points, all agents must continue straight
-        if (abs(x - x_int) + abs(y - y_int)  > Actions.TOLERANCE):
+        if (abs(x - x_int) + abs(y - y_int) > Actions.TOLERANCE):
             return [config.getDirection()]
 
         for dir, vec in Actions._directionsAsList:
             dx, dy = vec
-            next_y = y_int + dy
             next_x = x_int + dx
-            if not walls[next_x][next_y]: possible.append(dir)
+            next_y = y_int + dy
+
+            if 0 <= next_x < walls.width and 0 <= next_y < walls.height:
+                if not walls[next_x][next_y]:
+                    possible.append(dir)
 
         return possible
-
-    getPossibleActions = staticmethod(getPossibleActions)
 
     def getLegalNeighbors(position, walls):
         x,y = position
@@ -372,17 +378,25 @@ class GameStateData:
     """
 
     """
-    def __init__( self, prevState = None ):
-        """
-        Generates a new data packet by copying information from its predecessor.
-        """
-        if prevState != None:
+    def __init__(self, prevState=None):
+        if prevState is not None:
             self.food = prevState.food.shallowCopy()
             self.capsules = prevState.capsules[:]
-            self.agentStates = self.copyAgentStates( prevState.agentStates )
+            self.agentStates = self.copyAgentStates(prevState.agentStates)
             self.layout = prevState.layout
-            self._eaten = prevState._eaten
+            self._eaten = prevState._eaten.copy()
             self.score = prevState.score
+            self.isInvincible = prevState.isInvincible
+            self.invincibilityTimer = prevState.invincibilityTimer
+            self.specialCapsules = prevState.specialCapsules[:]
+        else:
+            self.capsules = []
+            self.agentStates = []
+            self._eaten = []
+            self.score = 0
+            self.isInvincible = False
+            self.invincibilityTimer = 0
+            self.specialCapsules = []
 
         self._foodEaten = None
         self._foodAdded = None
@@ -392,8 +406,23 @@ class GameStateData:
         self._win = False
         self.scoreChange = 0
 
-    def deepCopy( self ):
-        state = GameStateData( self )
+    def activateInvincibility(self, duration):
+        self.isInvincible = True
+        self.invincibilityTimer = duration
+        if len(self.agentStates) > 0:
+            self.agentStates[0].isInvincible = True
+
+    def updateInvincibility(self):
+        if self.isInvincible:
+            self.invincibilityTimer -= 1
+            if self.invincibilityTimer <= 0:
+                self.isInvincible = False
+                self.invincibilityTimer = 0
+                if len(self.agentStates) > 0:
+                    self.agentStates[0].isInvincible = False
+
+    def deepCopy(self):
+        state = GameStateData(self)
         state.food = self.food.deepCopy()
         state.layout = self.layout.deepCopy()
         state._agentMoved = self._agentMoved
@@ -490,7 +519,7 @@ class GameStateData:
         """
         self.food = layout.food.copy()
         #self.capsules = []
-        self.capsules = layout.capsules[:]
+        self.specialCapsules = layout.specialCapsules[:]
         self.layout = layout
         self.score = 0
         self.scoreChange = 0
@@ -553,7 +582,6 @@ class Game:
     def mute(self, agentIndex):
         if not self.muteAgents: return
         global OLD_STDOUT, OLD_STDERR
-        import cStringIO
         OLD_STDOUT = sys.stdout
         OLD_STDERR = sys.stderr
         sys.stdout = self.agentOutput[agentIndex]

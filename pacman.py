@@ -112,6 +112,7 @@ class GameState:
         # Time passes
         if agentIndex == 0:
             state.data.scoreChange += -TIME_PENALTY # Penalty for waiting around
+            state.data.updateInvincibility()
         else:
             GhostRules.decrementTimer( state.data.agentStates[agentIndex] )
 
@@ -364,6 +365,10 @@ class PacmanRules:
             if numFood == 0 and not state.data._lose:
                 state.data.scoreChange += 500
                 state.data._win = True
+        elif (x, y) in state.data.specialCapsules:
+            state.data.specialCapsules.remove((x, y))
+            state.data._foodEaten = (x, y)
+            state.data.activateInvincibility(30)
         # Eat capsule
         if( position in state.getCapsules() ):
             state.data.capsules.remove( position )
@@ -428,18 +433,19 @@ class GhostRules:
                 GhostRules.collide( state, ghostState, agentIndex )
     checkDeath = staticmethod( checkDeath )
 
-    def collide( state, ghostState, agentIndex):
-        if ghostState.scaredTimer > 0:
+    def collide(state, ghostState, agentIndex):
+        if state.data.isInvincible:
+            return
+        elif ghostState.scaredTimer > 0:
             state.data.scoreChange += 200
             GhostRules.placeGhost(state, ghostState)
             ghostState.scaredTimer = 0
-            # Added for first-person
             state.data._eaten[agentIndex] = True
         else:
             if not state.data._win:
                 state.data.scoreChange -= 500
                 state.data._lose = True
-    collide = staticmethod( collide )
+    collide = staticmethod(collide)
 
     def canKill( pacmanPosition, ghostPosition ):
         return manhattanDistance( ghostPosition, pacmanPosition ) <= COLLISION_TOLERANCE
