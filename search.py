@@ -2,7 +2,9 @@ from game import Directions
 from util import manhattanDistance
 import util, layout
 import sys, types, time, random, os
-from ghostAgents import DirectionalGhost
+from ghostAgents import DirectionalGhost, DeterministicGhost
+
+
 class SearchProblem:
     def getStartState(self):
         util.raiseNotDefined()
@@ -83,32 +85,36 @@ def decodeMove(move):
         return Directions.WEST
 
 def fitness(genome, problem):
-    random.seed(42)
-
     state = problem.getStartState()
     score = 0
     previous_food_count = state.getNumFood()
+    previous_special_food = state.data.capsules
     num_ghosts = state.getNumAgents() - 1
-    ghost_agents = [DirectionalGhost(i + 1) for i in range(num_ghosts)]
+
+    ghost_agents = [DeterministicGhost(i + 1) for i in range(num_ghosts)]
     steps_survived = 0
 
     for i in range(0, len(genome), 2):
         move = genome[i:i + 2]
         action = decodeMove(move)
         legalActions = state.getLegalActions(0)
+
         if not legalActions:
             score -= 10000
             break
         if action not in legalActions:
-            action = random.choice(legalActions)
+            legalActions.sort()
+            action = legalActions[0]
 
         state = state.generateSuccessor(0, action)
+
         if state.isWin():
             score += 5000
             break
         if state.isLose():
             score -= 5000
             break
+
         score += 10
         steps_survived += 1
 
@@ -118,10 +124,14 @@ def fitness(genome, problem):
             score += dots_eaten * 50
             previous_food_count = current_food_count
 
-        for j in range(1, len(ghost_agents) + 1):
+        current_special_food = state.data.capsules
+        if len(current_special_food) < len(previous_special_food):
+            score += 2000
+            previous_special_food = current_special_food
+
+        for j in range(1, num_ghosts + 1):
             ghostAgent = ghost_agents[j - 1]
-            distribution = ghostAgent.getDistribution(state)
-            bestAction = max(distribution, key=distribution.get)
+            bestAction = ghostAgent.getAction(state)
             state = state.generateSuccessor(j, bestAction)
 
             if state.isLose():
@@ -133,22 +143,23 @@ def fitness(genome, problem):
 
         pacman_position = state.getPacmanPosition()
         ghosts = state.getGhostPositions()
+
         if ghosts:
             closest_ghost_distance = min(
                 manhattanDistance(pacman_position, ghost) for ghost in ghosts
             )
-            if closest_ghost_distance < 1:
-                score -= 1000
-            elif closest_ghost_distance < 2:
-                score -= 500
-            elif closest_ghost_distance < 3:
-                score -= 300
-            else:
-                score += closest_ghost_distance * 10
+            if not state.data.agentStates[0].isInvincible:
+                if closest_ghost_distance < 1:
+                    score -= 1000
+                elif closest_ghost_distance < 2:
+                    score -= 500
+                elif closest_ghost_distance < 3:
+                    score -= 300
+                else:
+                    score += closest_ghost_distance * 10
 
     score += steps_survived * 50
     return score
-
 
 def crossover(parent1, parent2):
     crossoverPoint = random.randint(2, len(parent1) - 2)
@@ -196,7 +207,7 @@ def select(population, fitnessScores):
     return parent1, parent2
 
 
-def geneticAlgorithmSearch(problem, population_size=150, generations=20, mutation_rate=0.12, max_genome_length=800):
+def geneticAlgorithmSearch(problem, population_size=150, generations=15, mutation_rate=0.15, max_genome_length=800):
     # generating the initial population of genomes
     randomGenomesPopulation = [generateValidGenome(problem, max_genome_length) for _ in range(population_size)]
 

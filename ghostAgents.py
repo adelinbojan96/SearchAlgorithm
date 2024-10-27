@@ -79,3 +79,31 @@ class DirectionalGhost(GhostAgent):
         for a in legalActions: dist[a] += ( 1-bestProb ) / len(legalActions)
         dist.normalize()
         return dist
+
+class DeterministicGhost(GhostAgent):
+    "A ghost that moves deterministically towards Pacman."
+    def __init__(self, index):
+        super().__init__(index)
+
+    def getAction(self, state):
+
+        ghostState = state.getGhostState(self.index)
+        ghostPosition = state.getGhostPosition(self.index)
+        pacmanPosition = state.getPacmanPosition()
+        legalActions = state.getLegalActions(self.index)
+
+
+        distances = []
+        for action in legalActions:
+            successorPosition = Actions.getSuccessor(ghostPosition, action)
+            distance = manhattanDistance(successorPosition, pacmanPosition)
+            distances.append((distance, action))
+
+        distances.sort()
+        minDistance = distances[0][0]
+
+        bestActions = [action for distance, action in distances if distance == minDistance]
+        bestActions.sort()
+        bestAction = bestActions[0]
+
+        return bestAction
